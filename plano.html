@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plano de conexiones traductor QR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hoja de plano técnico, esquema a lo ancho y tabla de conexiones debajo */
+:root {
+  --bg: #f4f6f8;
+  --paper: #ffffff;
+  --ink: #1b2430;
+  --muted: #5d6b7a;
+  --line: #d3dae2;
+  --accent: #0b6e99;
+  --w12: #c62828;
+  --w5: #e07b00;
+  --wdata: #1565c0;
+  --wusb: #7b3fb5;
+  --wgnd: #1b2430;
+  --wnc: #9aa6b2;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161c; --paper: #18202a; --ink: #e3e9ef; --muted: #9aa8b6; --line: #2c3743;
+    --accent: #4fb3e0; --w12: #ff6b6b; --w5: #ffab40; --wdata: #64a8ff; --wusb: #c39bff;
+    --wgnd: #e3e9ef; --wnc: #6c7a88; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161c; --paper: #18202a; --ink: #e3e9ef; --muted: #9aa8b6; --line: #2c3743;
+  --accent: #4fb3e0; --w12: #ff6b6b; --w5: #ffab40; --wdata: #64a8ff; --wusb: #c39bff;
+  --wgnd: #e3e9ef; --wnc: #6c7a88; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 28px 20px 56px; display: grid; gap: 24px; }
+header h1 { font-size: 26px; margin: 0 0 4px; text-wrap: balance; font-weight: 600; }
+header p { margin: 0; color: var(--muted); max-width: 70ch; }
+.sheet { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+figure { margin: 0; }
+.scroll { overflow-x: auto; }
+svg.plano { display: block; width: 100%; min-width: 900px; height: auto; color: var(--ink); font-family: var(--font-body); }
+figcaption { color: var(--muted); font-size: 13.5px; margin-top: 10px; max-width: 90ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--muted); margin-top: 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.legend i { display: inline-block; width: 28px; height: 0; border-top: 3px solid; }
+h2 { font-size: 18px; margin: 0 0 12px; font-weight: 600; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; }
+td.n { font-family: var(--font-mono); color: var(--muted); width: 2.5em; font-variant-numeric: tabular-nums; }
+td code, li code { font-family: var(--font-mono); font-size: 13px; }
+.chip { display: inline-block; font-size: 11.5px; padding: 1px 8px; border-radius: 99px; border: 1px solid currentColor; white-space: nowrap; }
+.c12 { color: var(--w12); } .c5 { color: var(--w5); } .cdata { color: var(--wdata); } .cusb { color: var(--wusb); } .cgnd { color: var(--wgnd); } .cnc { color: var(--wnc); }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
+ul.notes { margin: 0; padding-left: 20px; display: grid; gap: 8px; max-width: 75ch; }
+.warn { border-left: 3px solid var(--w5); padding-left: 12px; }
+a { color: var(--accent); }
+/* trazos del esquema */
+.box { fill: var(--paper); stroke: currentColor; stroke-width: 1.5; }
+.box2 { fill: var(--bg); stroke: currentColor; stroke-width: 1.2; }
+.w { fill: none; stroke-width: 2.6; stroke-linejoin: round; stroke-linecap: round; }
+.w12 { stroke: var(--w12); } .w5 { stroke: var(--w5); } .wdata { stroke: var(--wdata); } .wusb { stroke: var(--wusb); stroke-width: 4; } .wgnd { stroke: var(--wgnd); } .wnc { stroke: var(--wnc); stroke-dasharray: 5 4; }
+.wpc { stroke: var(--muted); stroke-dasharray: 6 5; }
+.pin { fill: var(--paper); stroke: currentColor; stroke-width: 1.4; }
+.dot { fill: currentColor; }
+.t { fill: currentColor; font-size: 12.5px; }
+.ts { fill: var(--muted); font-size: 11px; }
+.th { fill: currentColor; font-size: 14px; font-weight: 600; }
+.tm { fill: currentColor; font-size: 12px; font-family: var(--font-mono); }
+.tred { fill: var(--w12); font-size: 11.5px; } .tnc { fill: var(--wnc); font-size: 11px; }
+.res { fill: var(--paper); stroke: currentColor; stroke-width: 1.4; }
+.gsym { stroke: currentColor; stroke-width: 1.6; fill: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Plano de conexiones del traductor QR</h1>
+  <p>Lector ZKTeco QR600VE por USB, ESP32-S3 como traductor, dos optoacopladores PC817 y salida Wiegand 34 al puerto READER 1 del panel SYSCA-2R-2D. Alimentación tomada del propio panel con un reductor LM2596.</p>
+</header>
+
+<section class="sheet">
+<figure>
+<div class="scroll">
+<svg class="plano" viewBox="0 0 1200 730" role="img" aria-label="Esquema eléctrico. El lector QR600VE toma 12 V del panel y manda el texto del QR por USB al ESP32-S3. El ESP32-S3 activa dos optoacopladores PC817 con GPIO4 y GPIO5, y estos jalan a tierra las líneas WD0 y WD1 del panel. Un LM2596 baja los 12 V del panel a 5 V para el ESP32-S3.">
+  <defs>
+    <marker id="flecha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+    </marker>
+  </defs>
+
+  <!-- ===== LECTOR QR600VE ===== -->
+  <rect class="box" x="40" y="70" width="190" height="200" rx="8"/>
+  <text class="th" x="135" y="98" text-anchor="middle">Lector QR600VE</text>
+  <text class="ts" x="135" y="116" text-anchor="middle">modo HID keyboard activado</text>
+  <!-- cables del lector -->
+  <text class="t" x="222" y="139" text-anchor="end">rojo +12V</text>
+  <text class="t" x="222" y="169" text-anchor="end">negro GND</text>
+  <text class="t" x="222" y="199" text-anchor="end">verde D0</text>
+  <text class="t" x="222" y="229" text-anchor="end">blanco D1</text>
+  <circle class="pin" cx="230" cy="135" r="4"/>
+  <circle class="pin" cx="230" cy="165" r="4"/>
+  <circle class="pin" cx="230" cy="195" r="4"/>
+  <circle class="pin" cx="230" cy="225" r="4"/>
+  <!-- D0 D1 sin conectar -->
+  <path class="w wnc" d="M234,195 H285"/>
+  <path class="w wnc" d="M234,225 H285"/>
+  <text class="tnc" x="292" y="199">sin conectar, aislar</text>
+  <text class="tnc" x="292" y="229">sin conectar, aislar</text>
+  <!-- USB del lector -->
+  <circle class="pin" cx="135" cy="270" r="4"/>
+  <text class="ts" x="145" y="290">cable USB del lector</text>
+
+  <!-- rojo y negro al panel por arriba -->
+  <path class="w w12" d="M234,135 H260 V34 H915 V150 H948"/>
+  <path class="w wgnd" d="M234,165 H272 V48 H900 V185 H948"/>
+  <text class="tred" x="560" y="28" text-anchor="middle">12 V del panel al lector</text>
+  <text class="ts" x="560" y="62" text-anchor="middle">tierra del panel al lector</text>
+
+  <!-- ===== ADAPTADOR OTG ===== -->
+  <path class="w wusb" d="M135,274 V360 H190"/>
+  <rect class="box2" x="190" y="342" width="95" height="36" rx="5"/>
+  <text class="t" x="237" y="364" text-anchor="middle">OTG C a A</text>
+  <path class="w wusb" d="M285,360 H330"/>
+
+  <!-- ===== ESP32-S3 ===== -->
+  <rect class="box" x="330" y="320" width="230" height="250" rx="8"/>
+  <text class="th" x="445" y="470" text-anchor="middle">ESP32-S3</text>
+  <text class="ts" x="445" y="488" text-anchor="middle">DevKitC dual USB-C</text>
+  <text class="ts" x="445" y="503" text-anchor="middle">N8R2 o N16R8</text>
+  <!-- puertos -->
+  <circle class="pin" cx="330" cy="360" r="4"/>
+  <text class="t" x="342" y="364">USB nativo (host)</text>
+  <circle class="pin" cx="330" cy="420" r="4"/>
+  <text class="t" x="342" y="424">UART (programar)</text>
+  <!-- PC solo para programar -->
+  <path class="w wpc" d="M326,420 H250 V455"/>
+  <rect class="box2" x="170" y="455" width="140" height="44" rx="5"/>
+  <text class="t" x="240" y="474" text-anchor="middle">Computadora</text>
+  <text class="ts" x="240" y="490" text-anchor="middle">solo para programar</text>
+  <!-- pines de salida -->
+  <circle class="pin" cx="560" cy="360" r="4"/>
+  <text class="tm" x="550" y="364" text-anchor="end">GPIO4</text>
+  <circle class="pin" cx="560" cy="440" r="4"/>
+  <text class="tm" x="550" y="444" text-anchor="end">GPIO5</text>
+  <!-- pines de alimentacion abajo -->
+  <circle class="pin" cx="410" cy="570" r="4"/>
+  <text class="tm" x="410" y="560" text-anchor="middle">GND</text>
+  <circle class="pin" cx="490" cy="570" r="4"/>
+  <text class="tm" x="490" y="560" text-anchor="middle">5V</text>
+
+  <!-- ===== RESISTENCIAS ===== -->
+  <path class="w wdata" d="M564,360 H600"/>
+  <rect class="res" x="600" y="352" width="48" height="16" rx="2"/>
+  <text class="ts" x="624" y="345" text-anchor="middle">R1 330 Ω</text>
+  <path class="w wdata" d="M648,360 H700"/>
+
+  <path class="w wdata" d="M564,440 H600"/>
+  <rect class="res" x="600" y="432" width="48" height="16" rx="2"/>
+  <text class="ts" x="624" y="464" text-anchor="middle">R2 330 Ω</text>
+  <path class="w wdata" d="M648,440 H700"/>
+
+  <!-- ===== PC817 U1 ===== -->
+  <rect class="box" x="700" y="340" width="100" height="56" rx="4"/>
+  <circle class="dot" cx="710" cy="349" r="2.5"/>
+  <text class="th" x="750" y="370" text-anchor="middle">U1</text>
+  <text class="ts" x="750" y="388" text-anchor="middle">PC817</text>
+  <text class="ts" x="716" y="364">1</text>
+  <text class="ts" x="716" y="388">2</text>
+  <text class="ts" x="784" y="364" text-anchor="end">4</text>
+  <text class="ts" x="784" y="388" text-anchor="end">3</text>
+  <!-- U1 pin2 a GND ESP32 -->
+  <path class="w wgnd" d="M700,384 H684 V400"/>
+  <path class="gsym" d="M674,400 H694 M678,405 H690 M682,410 H686"/>
+  <text class="ts" x="684" y="424" text-anchor="middle">GND ESP32</text>
+  <!-- U1 pin3 a GND panel -->
+  <path class="w wgnd" d="M800,384 H818 V400"/>
+  <path class="gsym" d="M808,400 H828 M812,405 H824 M816,410 H820"/>
+  <text class="ts" x="818" y="424" text-anchor="middle">GND panel</text>
+  <!-- U1 pin4 a WD0 -->
+  <path class="w wdata" d="M800,360 H860 V220 H948"/>
+
+  <!-- ===== PC817 U2 ===== -->
+  <rect class="box" x="700" y="440" width="100" height="56" rx="4" transform="translate(0,-12)"/>
+  <circle class="dot" cx="710" cy="437" r="2.5"/>
+  <text class="th" x="750" y="461" text-anchor="middle">U2</text>
+  <text class="ts" x="750" y="476" text-anchor="middle">PC817</text>
+  <text class="ts" x="716" y="444">1</text>
+  <text class="ts" x="716" y="476">2</text>
+  <text class="ts" x="784" y="444" text-anchor="end">4</text>
+  <text class="ts" x="784" y="476" text-anchor="end">3</text>
+  <path class="w wgnd" d="M700,472 H684 V488"/>
+  <path class="gsym" d="M674,488 H694 M678,493 H690 M682,498 H686"/>
+  <text class="ts" x="684" y="512" text-anchor="middle">GND ESP32</text>
+  <path class="w wgnd" d="M800,472 H818 V488"/>
+  <path class="gsym" d="M808,488 H828 M812,493 H824 M816,498 H820"/>
+  <text class="ts" x="818" y="512" text-anchor="middle">GND panel</text>
+  <!-- U2 pin4 a WD1 -->
+  <path class="w wdata" d="M800,440 H880 V255 H948"/>
+
+  <!-- ===== PANEL ===== -->
+  <rect class="box" x="948" y="80" width="220" height="330" rx="8"/>
+  <text class="th" x="1058" y="104" text-anchor="middle">Panel SYSCA-2R-2D</text>
+  <text class="ts" x="1058" y="121" text-anchor="middle">bornes READER 1</text>
+  <circle class="pin" cx="948" cy="150" r="4"/><text class="tm" x="960" y="154">+12V</text>
+  <circle class="pin" cx="948" cy="185" r="4"/><text class="tm" x="960" y="189">GND</text><text class="ts" x="1000" y="189">(es la GND panel)</text>
+  <circle class="pin" cx="948" cy="220" r="4"/><text class="tm" x="960" y="224">WD0</text>
+  <circle class="pin" cx="948" cy="255" r="4"/><text class="tm" x="960" y="259">WD1</text>
+  <circle class="pin" cx="948" cy="290" r="4"/><text class="tm" x="960" y="294">GLED</text>
+  <circle class="pin" cx="948" cy="325" r="4"/><text class="tm" x="960" y="329">BEEP</text>
+  <text class="tnc" x="1030" y="294">sin conectar</text>
+  <text class="tnc" x="1030" y="329">sin conectar</text>
+  <!-- etiqueta +12V junto al borne -->
+  
+  <!-- GND panel simbolo -->
+  
+  <!-- +12V panel etiqueta de red -->
+    <text class="ts" x="1058" y="380" text-anchor="middle">WD0 y WD1, entrada Wiegand 34</text>
+
+  <!-- ===== LM2596 ===== -->
+  <rect class="box" x="640" y="600" width="200" height="90" rx="6"/>
+  <text class="th" x="740" y="636" text-anchor="middle">LM2596</text>
+  <text class="ts" x="740" y="653" text-anchor="middle">ajustado a 5.0 V</text>
+  <circle class="pin" cx="840" cy="625" r="4"/><text class="tm" x="830" y="629" text-anchor="end">IN+</text>
+  <circle class="pin" cx="840" cy="665" r="4"/><text class="tm" x="830" y="669" text-anchor="end">IN−</text>
+  <circle class="pin" cx="640" cy="625" r="4"/><text class="tm" x="650" y="629">OUT+</text>
+  <circle class="pin" cx="640" cy="665" r="4"/><text class="tm" x="650" y="669">OUT−</text>
+  <!-- entrada desde panel -->
+  <path class="w w12" d="M844,625 H930"/>
+  <text class="tred" x="936" y="629">+12V panel</text>
+  <path class="w wgnd" d="M844,665 H920 V681"/>
+  <path class="gsym" d="M910,681 H930 M914,686 H926 M918,691 H922"/>
+  <text class="ts" x="940" y="688">GND panel</text>
+  <!-- salida al ESP32 -->
+  <path class="w w5" d="M636,625 H490 V574"/>
+  <text class="ts" x="560" y="619" text-anchor="middle">5 V</text>
+  <path class="w wgnd" d="M636,665 H410 V574"/>
+  <text class="ts" x="520" y="659" text-anchor="middle">tierra</text>
+</svg>
+</div>
+<figcaption>El lector solo toma corriente del panel y entrega el QR por USB. El ESP32-S3 busca el QR en su tabla y, si la persona puede pasar, enciende U1 y U2 en el orden de los bits. Cada PC817 jala a tierra su línea (WD0 o WD1) igual que lo haría un lector normal. Los símbolos de tierra con el mismo nombre van unidos entre sí.</figcaption>
+<div class="legend">
+  <span><i style="border-color:var(--w12)"></i>12 V</span>
+  <span><i style="border-color:var(--w5)"></i>5 V</span>
+  <span><i style="border-color:var(--wdata)"></i>señal</span>
+  <span><i style="border-color:var(--wusb)"></i>USB</span>
+  <span><i style="border-color:var(--wgnd)"></i>tierra</span>
+  <span><i style="border-color:var(--wnc);border-top-style:dashed"></i>sin conectar</span>
+  <span><i style="border-color:var(--muted);border-top-style:dashed"></i>solo al programar</span>
+</div>
+</figure>
+</section>
+
+<section class="sheet">
+<h2>Tabla de conexiones</h2>
+<div class="scroll">
+<table>
+<thead><tr><th>#</th><th>Desde</th><th>Hacia</th><th>Tipo</th></tr></thead>
+<tbody>
+<tr><td class="n">1</td><td>Lector, cable rojo (+12V)</td><td>Panel READER 1, borne +12V</td><td><span class="chip c12">12 V</span></td></tr>
+<tr><td class="n">2</td><td>Lector, cable negro (GND)</td><td>Panel READER 1, borne GND</td><td><span class="chip cgnd">tierra</span></td></tr>
+<tr><td class="n">3</td><td>Lector, cable verde (D0)</td><td>Sin conectar, aislar la punta con cinta</td><td><span class="chip cnc">no usar</span></td></tr>
+<tr><td class="n">4</td><td>Lector, cable blanco (D1)</td><td>Sin conectar, aislar la punta con cinta</td><td><span class="chip cnc">no usar</span></td></tr>
+<tr><td class="n">5</td><td>Lector, cable USB</td><td>Adaptador OTG, luego puerto USB nativo del ESP32-S3</td><td><span class="chip cusb">USB</span></td></tr>
+<tr><td class="n">6</td><td>ESP32-S3 <code>GPIO4</code></td><td>R1 330 Ω, luego U1 pin 1 (ánodo)</td><td><span class="chip cdata">señal</span></td></tr>
+<tr><td class="n">7</td><td>U1 pin 2 (cátodo)</td><td>ESP32-S3 <code>GND</code></td><td><span class="chip cgnd">tierra</span></td></tr>
+<tr><td class="n">8</td><td>U1 pin 4 (colector)</td><td>Panel READER 1, borne WD0</td><td><span class="chip cdata">señal</span></td></tr>
+<tr><td class="n">9</td><td>U1 pin 3 (emisor)</td><td>Panel READER 1, borne GND</td><td><span class="chip cgnd">tierra</span></td></tr>
+<tr><td class="n">10</td><td>ESP32-S3 <code>GPIO5</code></td><td>R2 330 Ω, luego U2 pin 1 (ánodo)</td><td><span class="chip cdata">señal</span></td></tr>
+<tr><td class="n">11</td><td>U2 pin 2 (cátodo)</td><td>ESP32-S3 <code>GND</code></td><td><span class="chip cgnd">tierra</span></td></tr>
+<tr><td class="n">12</td><td>U2 pin 4 (colector)</td><td>Panel READER 1, borne WD1</td><td><span class="chip cdata">señal</span></td></tr>
+<tr><td class="n">13</td><td>U2 pin 3 (emisor)</td><td>Panel READER 1, borne GND</td><td><span class="chip cgnd">tierra</span></td></tr>
+<tr><td class="n">14</td><td>Panel, borne +12V</td><td>LM2596 IN+</td><td><span class="chip c12">12 V</span></td></tr>
+<tr><td class="n">15</td><td>Panel, borne GND</td><td>LM2596 IN−</td><td><span class="chip cgnd">tierra</span></td></tr>
+<tr><td class="n">16</td><td>LM2596 OUT+ (5.0 V)</td><td>ESP32-S3 pin <code>5V</code></td><td><span class="chip c5">5 V</span></td></tr>
+<tr><td class="n">17</td><td>LM2596 OUT−</td><td>ESP32-S3 <code>GND</code></td><td><span class="chip cgnd">tierra</span></td></tr>
+<tr><td class="n">18</td><td>Panel, bornes GLED y BEEP</td><td>Sin conectar</td><td><span class="chip cnc">no usar</span></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+</body>
+</html>

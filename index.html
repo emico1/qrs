@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Traductor QR en 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Banco de trabajo en 3D a lo ancho, controles arriba, lista de piezas abajo */
+:root {
+  --bg: #f4f6f8;
+  --paper: #ffffff;
+  --ink: #1b2430;
+  --muted: #5d6b7a;
+  --line: #d3dae2;
+  --accent: #0b6e99;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg:#11161c; --paper:#18202a; --ink:#e3e9ef; --muted:#9aa8b6; --line:#2c3743; --accent:#4fb3e0; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg:#11161c; --paper:#18202a; --ink:#e3e9ef; --muted:#9aa8b6; --line:#2c3743; --accent:#4fb3e0; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1280px; margin: 0 auto; padding: 24px 18px 48px; display: grid; gap: 18px; }
+header h1 { font-size: 26px; margin: 0 0 4px; font-weight: 600; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 75ch; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.bar .sep { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
+button { font: 500 13.5px var(--font-body); color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.stage { position: relative; height: clamp(420px, 68vh, 720px); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #2b3138; }
+.stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.hint { position: absolute; left: 12px; bottom: 10px; color: #cfd6de; font-size: 12.5px; background: rgba(0,0,0,.35); padding: 4px 10px; border-radius: 99px; pointer-events: none; }
+.err { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; color: #fff; padding: 24px; text-align: center; }
+.sheet { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+h2 { font-size: 18px; margin: 0 0 10px; font-weight: 600; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 18px; }
+ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+code { font-family: var(--font-mono); font-size: 13px; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; border: 1px solid rgba(0,0,0,.25); }
+a { color: var(--accent); }
+.muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Traductor QR en 3D</h1>
+  <p>Cómo se ve físicamente el armado en protoboard, con el lector QR600VE, el ESP32-S3, los dos PC817, el LM2596 y los bornes READER 1 del panel. Gira con el mouse o el dedo, acerca con la rueda o pellizcando. Es el mismo circuito del <a href="plano.html">plano de conexiones</a>.</p>
+</header>
+
+<div class="bar" role="toolbar" aria-label="Controles de la vista">
+  <button type="button" id="v-general" aria-pressed="true">Vista general</button>
+  <button type="button" id="v-proto" aria-pressed="false">Protoboard de cerca</button>
+  <button type="button" id="v-opto" aria-pressed="false">Optoacopladores</button>
+  <button type="button" id="v-panel" aria-pressed="false">Bornes del panel</button>
+  <span class="sep" aria-hidden="true"></span>
+  <button type="button" id="t-labels" aria-pressed="true">Etiquetas</button>
+  <button type="button" id="t-mode" aria-pressed="false">Modo prototipo</button>
+</div>
+
+<div class="stage" id="stage">
+  <div class="hint" id="hint">Modo instalación, alimentado desde el panel</div>
+  <div class="err" id="err">No se pudo cargar el visor 3D. Revisa tu conexión y recarga la página.</div>
+</div>
+
+<div class="grid2">
+<section class="sheet">
+<h2>Qué estás viendo</h2>
+<ul>
+  <li><span class="sw" style="background:#c62828"></span>Rojo, 12 V del panel hacia el lector y el LM2596</li>
+  <li><span class="sw" style="background:#e07b00"></span>Naranja, 5 V del LM2596 al ESP32-S3</li>
+  <li><span class="sw" style="background:#222"></span>Negro, tierras</li>
+  <li><span class="sw" style="background:#1e88e5"></span>Azul, señales GPIO4 y GPIO5 hacia las resistencias</li>
+  <li><span class="sw" style="background:#2e9d4f"></span>Verde, línea WD0 hacia el panel</li>
+  <li><span class="sw" style="background:#f2f2f2"></span>Blanco, línea WD1 hacia el panel</li>
+  <li><span class="sw" style="background:#555"></span>Gris grueso, cable USB del lector al adaptador OTG</li>
+</ul>
+</section>
+<section class="sheet">
+<h2>Cómo leer la protoboard</h2>
+<ul>
+  <li>Cada columna de 5 agujeros (a a e, y f a j) está unida por dentro. Por eso basta con poner el cable en la misma columna que la pata de la pieza.</li>
+  <li>El riel negativo de enfrente es la tierra del ESP32-S3 y el riel negativo de atrás es la tierra del panel. No los unas con un cable.</li>
+  <li>El ESP32-S3 ocupa las columnas 2 a 23. GPIO4 cae en la columna 20, GPIO5 en la 19, 5V en la 3 y GND en la 2, todas en la fila j.</li>
+  <li>U1 va en las columnas 40 y 41 y U2 en la 46 y 47, montados sobre la canaleta central con el punto (pin 1) hacia el ESP32-S3.</li>
+</ul>
+</section>
+<section class="sheet">
+<h2>Modo prototipo y modo instalación</h2>
+<ul>
+  <li>En modo prototipo el ESP32-S3 se alimenta por el cable de la computadora (puerto UART) y el LM2596 queda desconectado.</li>
+  <li>En modo instalación el LM2596 toma 12 V del panel y alimenta el ESP32-S3 por el pin 5V. Ajusta el LM2596 a 5.0 V antes de conectarlo.</li>
+  <li>Nunca uses las dos alimentaciones al mismo tiempo.</li>
+</ul>
+</section>
+<section class="sheet">
+<h2>Qué tan fiel es</h2>
+<ul>
+  <li>Las medidas de la protoboard, el paso de 2.54 mm y el orden de pines del ESP32-S3 son reales.</li>
+  <li>El lector, el LM2596 y la placa del panel están simplificados. Su tamaño es aproximado y sus detalles son ilustrativos.</li>
+  <li>Revisa la serigrafía de tu placa ESP32-S3 al recibirla. Si es un clon, el orden de pines puede cambiar, y los puertos pueden decir USB y COM en vez de USB y UART.</li>
+</ul>
+</section>
+</div>
+<p class="muted">Orden de pines del ESP32-S3-DevKitC-1 según la guía de usuario de Espressif.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+  const stage = document.getElementById('stage');
+  if (typeof THREE === 'undefined' || !THREE.OrbitControls) {
+    document.getElementById('err').style.display = 'flex';
+    return;
+  }
+
+  // ---------- escena ----------
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x2b3138);
+  const camera = new THREE.PerspectiveCamera(38, 1, 1, 4000);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  stage.prepend(renderer.domElement);
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.maxPolarAngle = Math.PI * 0.49;
+  controls.minDistance = 30;
+  controls.maxDistance = 900;
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x40444a, 0.75));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.75);
+  sun.position.set(120, 260, 160);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  const sc = sun.shadow.camera; sc.left = -260; sc.right = 260; sc.top = 260; sc.bottom = -260; sc.near = 10; sc.far = 800;
+  scene.add(sun);
+
+  // tapete de trabajo
+  const mat = (color, o) => new THREE.MeshStandardMaterial(Object.assign({ color: color, roughness: 0.6, metalness: 0.05 }, o || {}));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(700, 520), mat(0x3d6b5c, { roughness: 0.95 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.set(-10, 0, -40); ground.receiveShadow = true;
+  scene.add(ground);
+  const grid = new THREE.GridHelper(700, 70, 0x5b8a7a, 0x4a7a6a);
+  grid.position.set(-10, 0.05, -40); scene.add(grid);
+
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  function box(w, h, d, m, x, y, z, parent) {
+    const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+    o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true;
+    (parent || scene).add(o); return o;
+  }
+  function cylY(r, h, m, x, y, z, parent, seg) {
+    const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg || 20), m);
+    o.position.set(x, y, z); o.castShadow = true; (parent || scene).add(o); return o;
+  }
+  function cylX(r, h, m, x, y, z, parent) {
+    const o = cylY(r, h, m, x, y, z, parent); o.rotation.z = Math.PI / 2; return o;
+  }
+  function tube(points, radius, color, parent, extra) {
+    const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal');
+    const geo = new THREE.TubeGeometry(curve, Math.max(40, points.length * 24), radius, 10, false);
+    const o = new THREE.Mesh(geo, mat(color, Object.assign({ roughness: 0.45 }, extra || {})));
+    o.castShadow = true; (parent || scene).add(o); return o;
+  }
+
+  // ---------- grupos que se prenden y apagan ----------
+  const labels = new THREE.Group(); scene.add(labels);
+  const install = new THREE.Group(); scene.add(install);   // solo en instalación
+  const proto = new THREE.Group(); scene.add(proto);       // solo en prototipo
+
+  // ---------- etiquetas ----------
+  function label(text, pos, opt) {
+    opt = opt || {};
+    const pad = 14, fs = 30;
+    const cv = document.createElement('canvas');
+    const ctx = cv.getContext('2d');
+    ctx.font = '600 ' + fs + 'px "IBM Plex Sans", system-ui, sans-serif';
+    const w = Math.ceil(ctx.measureText(text).width) + pad * 2, h = fs + pad * 1.4;
+    cv.width = w; cv.height = h;
+    ctx.font = '600 ' + fs + 'px "IBM Plex Sans", system-ui, sans-serif';
+    ctx.fillStyle = opt.bg || 'rgba(255,255,255,0.94)';
+    const r = 10;
+    ctx.beginPath();
+    ctx.moveTo(r, 0); ctx.lineTo(w - r, 0); ctx.quadraticCurveTo(w, 0, w, r);
+    ctx.lineTo(w, h - r); ctx.quadraticCurveTo(w, h, w - r, h);
+    ctx.lineTo(r, h); ctx.quadraticCurveTo(0, h, 0, h - r);
+    ctx.lineTo(0, r); ctx.quadraticCurveTo(0, 0, r, 0); ctx.fill();
+    ctx.fillStyle = opt.fg || '#1b2430';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, pad, h / 2 + 1);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.minFilter = THREE.LinearFilter;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+    const H = opt.size || 6;
+    sp.scale.set(H * w / h, H, 1);
+    sp.position.copy(pos);
+    sp.renderOrder = 10;
+    (opt.group || labels).add(sp);
+    return sp;
+  }
+
+  // ---------- protoboard 830 puntos ----------
+  const P = 2.54;
+  const BB = 10;                                   // altura de la cara superior
+  const colX = c => -79.38 + (c - 1) * P;
+  const ROW = { a: -13.97, b: -11.43, c: -8.89, d: -6.35, e: -3.81, f: 3.81, g: 6.35, h: 8.89, i: 11.43, j: 13.97 };
+  const RAIL = { fNeg: 19.05, fPos: 21.59, bNeg: -19.05, bPos: -21.59 };
+  const hole = (c, r) => V(colX(c), BB, ROW[r]);
+  const rail = (c, k) => V(colX(c), BB, RAIL[k]);
+
+  const bbMat = mat(0xf3f1ea, { roughness: 0.8 });
+  box(165, BB, 55, bbMat, 0, BB / 2, 0);
+  box(165, 0.3, 2.2, mat(0xdedad0), 0, BB + 0.05, 0);   // canaleta central
+  // lineas de los rieles
+  [[-24.2, 0xd32f2f], [-16.4, 0x1e5bd6], [16.4, 0x1e5bd6], [24.2, 0xd32f2f]].forEach(([z, c]) => {
+    box(150, 0.12, 0.6, mat(c), 0, BB + 0.06, z);
+  });
+  // agujeros
+  const holeGeo = new THREE.BoxGeometry(1.0, 0.2, 1.0);
+  const holeMat = mat(0x3a3a3a, { roughness: 1 });
+  const holePos = [];
+  for (let c = 1; c <= 63; c++) for (const r in ROW) holePos.push([colX(c), ROW[r]]);
+  for (let c = 3; c <= 61; c++) { if ((c - 3) % 6 === 5) continue; for (const k in RAIL) holePos.push([colX(c), RAIL[k]]); }
+  const holes = new THREE.InstancedMesh(holeGeo, holeMat, holePos.length);
+  const m4 = new THREE.Matrix4();
+  holePos.forEach((p, i) => { m4.makeTranslation(p[0], BB + 0.02, p[1]); holes.setMatrixAt(i, m4); });
+  scene.add(holes);
+  // numeros de columna de referencia
+  [1, 10, 20, 30, 40, 50, 60].forEach(c => label(String(c), V(colX(c), BB + 1, 26.5), { size: 3.2, bg: 'rgba(0,0,0,0)', fg: '#8a8578' }));
+  label('fila j', V(-86, BB + 1, ROW.j), { size: 3.2 });
+  label('fila a', V(-86, BB + 1, ROW.a), { size: 3.2 });
+  label('riel − GND ESP32', V(52, BB + 3, 29), { size: 4.2 });
+  label('riel − GND panel', V(52, BB + 3, -29), { size: 4.2 });
+  label('riel + 5 V', V(-40, BB + 3, 29), { size: 4.2, group: install });
+
+  // ---------- ESP32-S3 DevKitC ----------
+  const esp = new THREE.Group(); scene.add(esp);
+  const pcbBlack = mat(0x1d1f22, { roughness: 0.5 });
+  const pinMat = mat(0xd4af37, { metalness: 0.8, roughness: 0.3 });
+  const metal = mat(0xc8ccd2, { metalness: 0.85, roughness: 0.25 });
+  const headerMat = mat(0x111111);
+  const espX0 = -82.6, espX1 = -19.6, espLen = espX1 - espX0, espCx = (espX0 + espX1) / 2;
+  const espBottom = BB + 2.5;
+  box(espLen, 1.6, 25.4, pcbBlack, espCx, espBottom + 0.8, 0, esp);
+  // cabezales J1 (fila i) y J3 (fila b), columnas 2 a 23
+  [ROW.i, ROW.b].forEach(z => {
+    box(22 * P, 2.5, 2.5, headerMat, (colX(2) + colX(23)) / 2, BB + 1.25, z, esp);
+    for (let c = 2; c <= 23; c++) box(0.64, 1.2, 0.64, pinMat, colX(c), espBottom + 2.2, z, esp);
+  });
+  // modulo WROOM con blindaje y antena
+  box(18, 3.1, 17.6, metal, espX1 - 14, espBottom + 1.6 + 1.55, 0, esp);
+  box(6.5, 0.4, 17.6, mat(0x2a2d31), espX1 - 2.6, espBottom + 1.8, 0, esp);
+  // dos USB-C
+  const usbY = espBottom + 1.6 + 1.6;
+  box(7.5, 3.2, 9, metal, espX0 + 3.2, usbY, 6, esp);
+  box(7.5, 3.2, 9, metal, espX0 + 3.2, usbY, -6, esp);
+  box(3, 0.6, 3, mat(0xffffff, { emissive: 0x44ff66, emissiveIntensity: 0.6 }), espX0 + 14, espBottom + 1.9, -9, esp);
+  label('ESP32-S3', V(espCx + 6, espBottom + 12, 0), { size: 6 });
+  label('USB nativo', V(espX0 - 4, usbY + 6, 12), { size: 3.8 });
+  label('UART', V(espX0 - 4, usbY + 6, -12), { size: 3.8 });
+  label('GPIO4', V(colX(20), BB + 12, ROW.j + 4), { size: 3.6 });
+  label('GPIO5', V(colX(19) - 6, BB + 9, ROW.j + 6), { size: 3.6 });
+  label('5V', V(colX(3), BB + 12, ROW.j + 5), { size: 3.6, group: install });
+  label('GND', V(colX(2) - 4, BB + 9, ROW.j + 6), { size: 3.6 });
+
+  // ---------- puentes dupont ----------
+  const housing = mat(0x161616);
+  function plug(p, parent) {
+    box(2.4, 6, 2.4, housing, p.x, p.y + 3, p.z, parent);
+  }
+  function jumper(a, b, color, lift, parent) {
+    const up = lift || 8;
+    const ta = V(a.x, a.y + 6, a.z), tb = V(b.x, b.y + 6, b.z);
+    const mid = ta.clone().lerp(tb, 0.5); mid.y += up;
+    const g = new THREE.Group();
+    tube([ta, V(a.x, a.y + 6 + up * 0.5, a.z), mid, V(b.x, b.y + 6 + up * 0.5, b.z), tb], 0.55, color, g);
+    box(2.4, 6, 2.4, housing, a.x, a.y + 3, a.z, g);
+    box(2.4, 6, 2.4, housing, b.x, b.y + 3, b.z, g);
+    (parent || scene).add(g);
+    return g;
+  }
+
+  // ---------- resistencias 330 ohm ----------
+  function resistor(c1, c2, r, name) {
+    const a = hole(c1, r), b = hole(c2, r);
+    const y = BB + 3.2, cx = (a.x + b.x) / 2, len = 6.2;
+    const lead = mat(0xbfc4c9, { metalness: 0.7, roughness: 0.35 });
+    tube([a, V(a.x, y, a.z), V(cx - len / 2, y, a.z)], 0.3, 0xbfc4c9);
+    tube([b, V(b.x, y, b.z), V(cx + len / 2, y, b.z)], 0.3, 0xbfc4c9);
+    cylX(1.25, len, mat(0xd8c49a), cx, y, a.z);
+    // naranja naranja cafe dorado
+    [[-1.9, 0xf57c00], [-0.9, 0xf57c00], [0.1, 0x6d4c41], [1.9, 0xc9a227]].forEach(([dx, c]) => cylX(1.32, 0.55, mat(c), cx + dx, y, a.z));
+    label(name, V(cx, y + 6, a.z + 2), { size: 3.6 });
+  }
+  resistor(36, 40, 'g', 'R1 330 Ω');
+  resistor(42, 46, 'g', 'R2 330 Ω');
+
+  // ---------- PC817 DIP-4 ----------
+  function pc817(c, name) {
+    const x = (colX(c) + colX(c + 1)) / 2, y = BB + 1.0 + 1.75;
+    box(4.6, 3.5, 6.5, mat(0x161616, { roughness: 0.4 }), x, y, 0);
+    cylY(0.55, 0.15, mat(0x555555), colX(c) + 0.2, y + 1.8, 2.2);   // punto del pin 1
+    const legMat = mat(0xc9ced3, { metalness: 0.7, roughness: 0.3 });
+    [[c, 'f'], [c + 1, 'f'], [c, 'e'], [c + 1, 'e']].forEach(([cc, rr]) => {
+      const p = hole(cc, rr);
+      box(0.5, 2.2, 0.5, legMat, p.x, BB + 0.9, p.z);
+      box(0.5, 0.4, Math.abs(p.z) - 3.25 + 0.3, legMat, p.x, BB + 2.0, Math.sign(p.z) * ((Math.abs(p.z) + 3.25) / 2));
+    });
+    label(name, V(x, y + 8, 0), { size: 3.8 });
+  }
+  pc817(40, 'U1 PC817');
+  pc817(46, 'U2 PC817');
+  label('pin 1', V(colX(40) - 3, BB + 6, 7.5), { size: 3 });
+
+  // ---------- cables en la protoboard ----------
+  const BLUE = 0x1e88e5, BLUE2 = 0x42a5f5, BLACK = 0x222222, RED = 0xc62828, ORANGE = 0xe07b00, GREEN = 0x2e9d4f, WHITE = 0xf2f2f2;
+  jumper(hole(20, 'j'), hole(36, 'j'), BLUE, 10);          // GPIO4 a R1
+  jumper(hole(19, 'j'), hole(42, 'j'), BLUE2, 16);         // GPIO5 a R2
+  jumper(hole(2, 'j'), rail(2, 'fNeg'), BLACK, 3);         // GND ESP32 al riel
+  jumper(hole(3, 'j'), rail(3, 'fPos'), ORANGE, 5, install); // 5V al riel (instalacion)
+  jumper(hole(41, 'i'), rail(41, 'fNeg'), BLACK, 3);       // catodo U1
+  jumper(hole(47, 'i'), rail(47, 'fNeg'), BLACK, 3);       // catodo U2
+  jumper(hole(41, 'a'), rail(41, 'bNeg'), BLACK, 3);       // emisor U1
+  jumper(hole(47, 'a'), rail(47, 'bNeg'), BLACK, 3);       // emisor U2
+
+  // ---------- panel SYSCA-2R-2D (placa simplificada) ----------
+  const panelCx = 60, panelCz = -122, panelY = 7;
+  for (const [dx, dz] of [[-74, -48], [74, -48], [-74, 48], [74, 48]]) cylY(2, panelY, mat(0xc0c0c0, { metalness: 0.7 }), panelCx + dx, panelY / 2, panelCz + dz);
+  box(160, 1.6, 106, mat(0x1f6b3a, { roughness: 0.5 }), panelCx, panelY + 0.8, panelCz);
+  const pTop = panelY + 1.6;
+  box(16, 1.6, 16, mat(0x151515), panelCx + 10, pTop + 0.8, panelCz - 5);                  // microcontrolador
+  box(16, 13, 21, mat(0xb8bcc2, { metalness: 0.6 }), panelCx + 66, pTop + 6.5, panelCz - 40); // RJ45
+  [0, 1].forEach(i => box(15, 12, 19, mat(0x1d5fbf), panelCx + 40 + i * 20, pTop + 6, panelCz + 5)); // relevadores
+  // bornera READER 1 y otras borneras
+  const termMat = mat(0x2f8f4e, { roughness: 0.55 });
+  const tP = 5.08, tN = 6, tCx = 30, tZ = -74;
+  box(tN * tP, 9, 8, termMat, tCx, pTop + 4.5, tZ);
+  box(tN * tP, 9, 8, termMat, tCx + 40, pTop + 4.5, tZ);
+  box(tN * tP, 9, 8, termMat, tCx + 80, pTop + 4.5, tZ);
+  const tx = i => tCx - (tN * tP) / 2 + tP / 2 + i * tP;
+  const tEntry = i => V(tx(i), pTop + 3, tZ + 4.2);
+  ['+12V', 'GND', 'WD0', 'WD1', 'GLED', 'BEEP'].forEach((n, i) => {
+    cylY(1.5, 0.8, metal, tx(i), pTop + 9.2, tZ - 1.2);
+    box(3, 3, 0.4, mat(0x0d0d0d), tx(i), pTop + 3, tZ + 4.05);
+    label(n, V(tx(i), pTop + 15 + (i % 2) * 5, tZ), { size: 3.4 });
+  });
+  label('READER 1', V(tCx, pTop + 27, tZ - 4), { size: 4.4 });
+  label('Panel SYSCA-2R-2D (placa)', V(panelCx + 20, pTop + 30, panelCz - 20), { size: 6 });
+
+  // ---------- cables al panel ----------
+  // colectores a WD0 y WD1 (verde y blanco, igual que el codigo de colores Wiegand)
+  const c40b = hole(40, 'b'), c46b = hole(46, 'b');
+  plug(c40b); plug(c46b);
+  tube([V(c40b.x, BB + 6, c40b.z), V(c40b.x, BB + 14, c40b.z - 8), V(tx(2) + 6, 22, -45), V(tx(2), pTop + 6, tZ + 12), tEntry(2)], 0.7, GREEN);
+  tube([V(c46b.x, BB + 6, c46b.z), V(c46b.x, BB + 17, c46b.z - 8), V(tx(3) + 10, 26, -45), V(tx(3), pTop + 7, tZ + 13), tEntry(3)], 0.7, WHITE);
+  // riel negativo trasero (GND panel) al borne GND
+  const r30 = rail(30, 'bNeg'); plug(r30);
+  tube([V(r30.x, BB + 6, r30.z), V(r30.x - 2, BB + 12, r30.z - 10), V(tx(1) + 2, 18, -50), V(tx(1), pTop + 6, tZ + 12), tEntry(1)], 0.7, BLACK);
+
+  // ---------- lector QR600VE ----------
+  const rd = new THREE.Group(); scene.add(rd);
+  const rX = -175, rZ = -70, rW = 58, rH = 138, rD = 16;
+  box(rW + 14, 4, rD + 22, mat(0x2a2a2a), rX, 2, rZ, rd);                    // base de apoyo
+  box(rW, rH, rD, mat(0x9aa0a6, { metalness: 0.6, roughness: 0.35 }), rX, 4 + rH / 2, rZ, rd);
+  box(rW - 6, rH - 22, 0.6, mat(0x0b0d10, { roughness: 0.15, metalness: 0.3 }), rX, 4 + rH / 2 + 6, rZ + rD / 2 + 0.3, rd);
+  box(24, 15, 0.4, mat(0x1e90ff, { emissive: 0x1e90ff, emissiveIntensity: 0.9 }), rX, 4 + rH - 40, rZ + rD / 2 + 0.7, rd);
+  box(6, 6, 0.4, mat(0xdddddd, { emissive: 0x999999, emissiveIntensity: 0.4 }), rX, 4 + 40, rZ + rD / 2 + 0.7, rd);
+  box(30, 3, 0.4, mat(0x2aa7ff, { emissive: 0x2aa7ff, emissiveIntensity: 0.8 }), rX, 4 + 12, rZ + rD / 2 + 0.7, rd);
+  label('Lector QR600VE', V(rX, 4 + rH + 10, rZ), { size: 6.5 });
+  // salida de cables por detras abajo
+  const rOut = V(rX, 14, rZ - rD / 2 - 1);
+  // rojo y negro al panel
+  tube([rOut, V(rX + 4, 6, rZ - 26), V(-90, 3, -96), V(-20, 3, -92), V(tx(0) - 6, 6, tZ + 22), V(tx(0), pTop + 6, tZ + 12), tEntry(0)], 0.8, RED);
+  tube([V(rOut.x + 1.6, rOut.y, rOut.z), V(rX + 7, 6, rZ - 24), V(-88, 3, -88), V(-18, 3, -86), V(tx(1) - 4, 6, tZ + 20), V(tx(1), pTop + 5, tZ + 11), tEntry(1)], 0.8, BLACK);
+  // verde y blanco aislados con cinta
+  const tapeMat = mat(0xeeeeee, { roughness: 0.9 });
+  tube([V(rOut.x - 1.6, rOut.y, rOut.z), V(rX - 4, 5, rZ - 22), V(rX - 18, 2.5, rZ - 32)], 0.8, GREEN);
+  tube([V(rOut.x - 3.2, rOut.y, rOut.z), V(rX - 8, 5, rZ - 20), V(rX - 26, 2.5, rZ - 26)], 0.8, WHITE);
+  cylX(1.6, 6, tapeMat, rX - 20, 2.5, rZ - 33);
+  cylX(1.6, 6, tapeMat, rX - 28, 2.5, rZ - 26.5);
+  label('D0 y D1 aislados con cinta', V(rX - 30, 14, rZ - 42), { size: 4.2 });
+
+  // ---------- cable USB del lector y adaptador OTG ----------
+  const espUsbN = V(espX0 + 3.2, usbY, 6);          // puerto nativo
+  // adaptador OTG: conector USB-C metido en el puerto nativo, cablecito y USB-A hembra
+  box(5, 2.6, 8.4, metal, espUsbN.x - 5.2, usbY, 6);
+  box(10, 5.2, 10, mat(0x111111), espUsbN.x - 12.5, usbY, 6);
+  tube([V(espUsbN.x - 17.5, usbY, 6), V(espUsbN.x - 30, usbY - 2, 14), V(espUsbN.x - 40, 4, 26), V(espUsbN.x - 48, 4, 30)], 1.3, 0x161616);
+  const otgA = V(espUsbN.x - 56, 4, 32);
+  box(16, 7.5, 14, mat(0x161616), otgA.x, otgA.y, otgA.z);
+  box(2, 4.5, 12, metal, otgA.x - 8.4, otgA.y, otgA.z);
+  label('Adaptador OTG', V(otgA.x, 16, otgA.z + 8), { size: 4.2 });
+  // cable USB del lector entra al USB-A hembra
+  box(14, 6, 12, mat(0x2c2c2c), otgA.x - 16, otgA.y, otgA.z);
+  tube([V(rOut.x + 3, 10, rOut.z), V(rX + 10, 5, rZ - 18), V(rX + 30, 4, rZ + 30), V(-150, 4, 40), V(otgA.x - 30, 4, otgA.z), V(otgA.x - 23, otgA.y, otgA.z)], 1.6, 0x555a60);
+  label('USB del lector', V(-165, 12, 30), { size: 4.2 });
+
+  // ---------- LM2596 (instalacion) ----------
+  const lm = new THREE.Group(); install.add(lm);
+  const lmX = 128, lmZ = 50, lmY = 4;
+  for (const [dx, dz] of [[-19, -8], [19, -8], [-19, 8], [19, 8]]) cylY(1.2, lmY, mat(0xc0c0c0), lmX + dx, lmY / 2, lmZ + dz, lm);
+  box(43, 1.6, 21, mat(0x1452b8), lmX, lmY + 0.8, lmZ, lm);
+  const lTop = lmY + 1.6;
+  box(12, 7, 12, mat(0x1b1b1b, { roughness: 0.4 }), lmX + 4, lTop + 3.5, lmZ - 1, lm);       // bobina
+  cylY(3.2, 10, mat(0x222222), lmX - 10, lTop + 5, lmZ + 5, lm);                            // capacitor
+  cylY(3.2, 10, mat(0x222222), lmX + 14, lTop + 5, lmZ + 5, lm);
+  box(10, 2.5, 6, mat(0x111111), lmX - 9, lTop + 1.25, lmZ - 5, lm);                        // integrado
+  box(9.5, 10, 4.5, mat(0x2b6cd6), lmX - 1, lTop + 5, lmZ + 7.5, lm);                       // trimmer
+  cylY(1.2, 0.8, mat(0xd4af37, { metalness: 0.8 }), lmX - 4.5, lTop + 10.4, lmZ + 7.5, lm);
+  const pad = (dx, dz) => V(lmX + dx, lTop + 0.2, lmZ + dz);
+  const pOutP = pad(-19.5, -6), pOutN = pad(-19.5, 6), pInP = pad(19.5, -6), pInN = pad(19.5, 6);
+  [pOutP, pOutN, pInP, pInN].forEach(p => cylY(1.4, 0.4, mat(0xd8d8d8, { metalness: 0.8 }), p.x, p.y, p.z, lm));
+  label('LM2596 a 5.0 V', V(lmX, lTop + 22, lmZ), { size: 5, group: install });
+  label('OUT', V(lmX - 25, lTop + 8, lmZ), { size: 3.4, group: install });
+  label('IN', V(lmX + 25, lTop + 8, lmZ), { size: 3.4, group: install });
+  // salida a los rieles de enfrente
+  const r62p = rail(62, 'fPos'), r61n = rail(61, 'fNeg');
+  plug(r62p, install); plug(r61n, install);
+  (tube([pOutP, V(pOutP.x - 6, 10, pOutP.z - 2), V(r62p.x + 8, 18, r62p.z + 8), V(r62p.x, BB + 6, r62p.z)], 0.6, ORANGE, install));
+  (tube([pOutN, V(pOutN.x - 6, 9, pOutN.z), V(r61n.x + 8, 16, r61n.z + 10), V(r61n.x, BB + 6, r61n.z)], 0.6, BLACK, install));
+  // entrada desde el panel
+  tube([pInP, V(pInP.x + 8, 8, pInP.z), V(160, 6, 0), V(120, 6, -45), V(tx(0) + 4, 8, tZ + 24), V(tx(0) + 1, pTop + 7, tZ + 13), tEntry(0)], 0.7, RED, install);
+  tube([pInN, V(pInN.x + 10, 6, pInN.z), V(166, 5, 4), V(126, 5, -40), V(tx(1) + 6, 7, tZ + 25), V(tx(1) + 1, pTop + 6, tZ + 14), tEntry(1)], 0.7, BLACK, install);
+
+  // ---------- cable a la computadora (prototipo) ----------
+  const espUsbU = V(espX0 + 3.2, usbY, -6);
+  box(5, 2.6, 8.4, metal, espUsbU.x - 5.2, usbY, -6, proto);
+  box(12, 5.5, 10, mat(0x8a8f96), espUsbU.x - 13, usbY, -6, proto);
+  tube([V(espUsbU.x - 19, usbY, -6), V(-115, 5, -20), V(-135, 3, 5), V(-175, 3, 60), V(-230, 3, 95)], 1.6, 0x8a8f96, proto);
+  label('A la computadora, solo para programar', V(-200, 14, 92), { size: 4.4, group: proto });
+
+  // ---------- vistas ----------
+  const views = {
+    general: { pos: V(60, 300, 330), target: V(-30, 0, -30) },
+    proto:   { pos: V(-10, 120, 120), target: V(-10, 8, 0) },
+    opto:    { pos: V(65, 55, 55), target: V(28, 8, 0) },
+    panel:   { pos: V(60, 90, 30), target: V(30, 8, -70) }
+  };
+  let anim = null;
+  function goTo(name, instant) {
+    const v = views[name];
+    if (instant) { camera.position.copy(v.pos); controls.target.copy(v.target); controls.update(); return; }
+    anim = { p0: camera.position.clone(), t0: controls.target.clone(), p1: v.pos, t1: v.target, start: performance.now(), dur: reduce ? 1 : 700 };
+  }
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const viewBtns = { general: 'v-general', proto: 'v-proto', opto: 'v-opto', panel: 'v-panel' };
+  Object.keys(viewBtns).forEach(k => {
+    document.getElementById(viewBtns[k]).addEventListener('click', () => {
+      Object.values(viewBtns).forEach(id => document.getElementById(id).setAttribute('aria-pressed', 'false'));
+      document.getElementById(viewBtns[k]).setAttribute('aria-pressed', 'true');
+      goTo(k);
+    });
+  });
+  const bLabels = document.getElementById('t-labels');
+  bLabels.addEventListener('click', () => {
+    const on = bLabels.getAttribute('aria-pressed') !== 'true';
+    bLabels.setAttribute('aria-pressed', String(on));
+    labels.visible = on;
+    install.children.forEach(o => { if (o.isSprite) o.visible = on; });
+    proto.children.forEach(o => { if (o.isSprite) o.visible = on; });
+  });
+  const bMode = document.getElementById('t-mode');
+  const hint = document.getElementById('hint');
+  function setMode(prototipo) {
+    install.visible = !prototipo;
+    proto.visible = prototipo;
+    bMode.setAttribute('aria-pressed', String(prototipo));
+    hint.textContent = prototipo ? 'Modo prototipo, alimentado por la computadora' : 'Modo instalación, alimentado desde el panel';
+  }
+  bMode.addEventListener('click', () => setMode(bMode.getAttribute('aria-pressed') !== 'true'));
+
+  // ---------- render ----------
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+  goTo('general', true);
+  setMode(false);
+  function loop(now) {
+    if (anim) {
+      let t = Math.min(1, (now - anim.start) / anim.dur);
+      const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      camera.position.lerpVectors(anim.p0, anim.p1, e);
+      controls.target.lerpVectors(anim.t0, anim.t1, e);
+      if (t >= 1) anim = null;
+    }
+    controls.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
